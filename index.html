@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everyday Memory Gym</title>
+<style>
+  :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f7f8fb; color: #15223a; }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 5vw, 2.5rem); line-height: 1.18; }
+  h2 { font-size: clamp(1.4rem, 4vw, 1.8rem); line-height: 1.25; margin: 0 0 18px; }
+  p { font-size: 1.12rem; line-height: 1.6; }
+  .eyebrow { font-size: .94rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #4c6288; }
+  .card { margin-top: 24px; background: white; border: 1px solid #dce3ef; border-radius: 18px; padding: clamp(22px,5vw,36px); }
+  .muted { color: #45536b; }
+  .wordrow { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 24px 0; }
+  .word { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 800; text-align: center; padding: 20px 16px; border-radius: 14px; background: #eef2fa; min-width: 135px; flex: 1 1 135px; }
+  .shapegrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 9px; margin: 20px auto; max-width: 340px; }
+  .shape { display: grid; place-items: center; background: #eef2fa; border-radius: 12px; font-size: 2rem; min-height: 58px; }
+  .choices { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin: 22px 0; }
+  button { font: inherit; font-size: 1.1rem; font-weight: 650; line-height: 1.25; min-height: 52px; padding: 12px 18px; border-radius: 12px; border: 2px solid #c9d5e6; background: #fff; color: #172c4c; cursor: pointer; touch-action: manipulation; }
+  button:hover { background: #f0f5ff; }
+  button:focus-visible { outline: 3px solid #1458bf; outline-offset: 3px; }
+  button.primary { border-color: #224fb4; background: #224fb4; color: white; width: 100%; }
+  button.primary:hover { background: #173b8b; }
+  button[aria-pressed="true"] { border-color: #224fb4; background: #e4edff; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .note { padding: 22px; margin: 22px 0; border-radius: 12px; background: #eef2fa; font-size: 1.3rem; font-weight: 600; line-height: 1.55; }
+  .progress { color: #4c6288; font-size: 1rem; font-weight: 700; margin-bottom: 10px; }
+  .feedback { padding: 14px 16px; background: #eaf3ed; border-radius: 10px; margin: 16px 0; }
+  .fine { margin-top: 24px; color: #4b5870; font-size: .9rem; line-height: 1.5; }
+  @media(max-width:410px){.word{flex-basis:100%;min-width:0;} .choices{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Gentle daily practice · about 3–5 minutes</p>
+  <h1>Everyday Memory Gym</h1>
+  <p class="muted">A relaxed game with word memory, attention, and everyday details. You can take as long as you need.</p>
+  <section class="card" id="game" aria-live="polite"></section>
+  <p class="fine">This is a practice game, not a clinical assessment or treatment. Regular cognitive activities can be enjoyable, but this game cannot diagnose, prevent, or cure dementia. If memory has been getting worse, consult a clinician.</p>
+</main>
+<script>
+(() => {
+'use strict';
+const data = [
+ { words:['Apple','Key','Garden'], options:['Garden','Clock','Apple','Bridge','Lemon','Key'],
+   items:['★','●','★','◆','●','◆','★','●','◆','★','●','◆'], count:4,
+   note:'Your friend Maya is visiting on Friday at 3 o’clock. Remember to bring a blue notebook.',
+   day:'Friday', dayOptions:['Tuesday','Friday','Sunday'], item:'Blue notebook', itemOptions:['Umbrella','Blue notebook','Glasses'] },
+ { words:['Orange','Book','River'], options:['Book','Candle','Orange','Chair','River','Flower'],
+   items:['●','★','◆','★','◆','★','●','◆','★','●','◆','★'], count:5,
+   note:'Your library visit is on Wednesday at 11 o’clock. Remember to bring your reading glasses.',
+   day:'Wednesday', dayOptions:['Monday','Wednesday','Saturday'], item:'Reading glasses', itemOptions:['Reading glasses','Wallet','Lunch bag'] },
+ { words:['Dog','Spoon','Moon'], options:['Star','Spoon','Cat','Moon','Dog','Hat'],
+   items:['◆','★','●','★','◆','●','★','◆','●','★','★','◆'], count:5,
+   note:'You are meeting Ana on Monday at 2 o’clock. Remember to bring a green folder.',
+   day:'Monday', dayOptions:['Monday','Thursday','Sunday'], item:'Green folder', itemOptions:['Keys','Green folder','Water bottle'] }
+];
+const root = document.getElementById('game');
+let gameIndex = 0, stage = 'intro', score = 0, selected = new Set();
+const d = () => data[gameIndex % data.length];
+const safe = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function button(label,id,kind='') { return `<button type="button" id="${id}" ${kind==='primary'?'class="primary"':''}>${safe(label)}</button>`; }
+function html(x){root.innerHTML=x;}
+function bind(id,fn){const b=document.getElementById(id); if(b)b.addEventListener('click',fn);}
+function next(s){stage=s;selected=new Set();render();}
+function choiceButtons(options){return `<div class="choices">${options.map((t,i)=>`<button type="button" data-choice="${i}" aria-pressed="${selected.has(t)}">${safe(t)}</button>`).join('')}</div>`;}
+function render(){
+ const g=d();
+ if(stage==='intro'){
+  html(`<div class="progress">Ready when you are</div><h2>Let’s exercise your memory</h2><p>We’ll remember three words, do a quick attention puzzle, and practice remembering everyday information.</p><p>There is no timer, and it’s fine to try again.</p>${button('Start game','next','primary')}`);
+  bind('next',()=>{score=0;next('words');});
+ }else if(stage==='words'){
+  html(`<div class="progress">Step 1 of 5 · Remember</div><h2>Remember these three words</h2><div class="wordrow">${g.words.map(w=>`<div class="word">${safe(w)}</div>`).join('')}</div><p>Say each word aloud. When you're ready, continue. You'll be asked about the words later.</p>${button('I’m ready','next','primary')}`);
+  bind('next',()=>next('focus'));
+ }else if(stage==='focus'){
+  html(`<div class="progress">Step 2 of 5 · Attention</div><h2>How many stars do you see?</h2><div class="shapegrid" aria-label="Grid of stars, circles, and diamonds">${g.items.map(i=>`<span class="shape">${i}</span>`).join('')}</div>${choiceButtons(['3','4','5','6'])}`);
+  document.querySelectorAll('[data-choice]').forEach(b=>b.addEventListener('click',()=>{if(Number(b.textContent)===g.count)score++;next('recall');}));
+ }else if(stage==='recall'){
+  html(`<div class="progress">Step 3 of 5 · Word memory</div><h2>Which three words did you see?</h2><p>Tap the three words you remember.</p>${choiceButtons(g.options)}<p id="selection" class="muted">Selected: 0 of 3</p>${button('Check my words','check','primary')}`);
+  document.querySelectorAll('[data-choice]').forEach(b=>b.addEventListener('click',()=>{const word=b.textContent;if(selected.has(word))selected.delete(word);else if(selected.size<3)selected.add(word); b.setAttribute('aria-pressed',String(selected.has(word)));document.getElementById('selection').textContent=`Selected: ${selected.size} of 3`;document.getElementById('check').disabled=selected.size!==3;}));
+  document.getElementById('check').disabled=true;
+  bind('check',()=>{score+=g.words.filter(w=>selected.has(w)).length;next('note');});
+ }else if(stage==='note'){
+  html(`<div class="progress">Step 4 of 5 · Everyday memory</div><h2>Read this short reminder</h2><div class="note">${safe(g.note)}</div><p>Take your time to remember the day and what to bring.</p>${button('I remember it','next','primary')}`);
+  bind('next',()=>next('day'));
+ }else if(stage==='day'){
+  html(`<div class="progress">Step 5 of 5 · Everyday memory</div><h2>What day was the appointment or visit?</h2>${choiceButtons(g.dayOptions)}`);
+  document.querySelectorAll('[data-choice]').forEach(b=>b.addEventListener('click',()=>{if(b.textContent===g.day)score++;next('item');}));
+ }else if(stage==='item'){
+  html(`<div class="progress">One last question</div><h2>What were you supposed to bring?</h2>${choiceButtons(g.itemOptions)}`);
+  document.querySelectorAll('[data-choice]').forEach(b=>b.addEventListener('click',()=>{if(b.textContent===g.item)score++;next('results');}));
+ }else if(stage==='results'){
+  const statement=score===6?'Excellent focus!':score>=3?'Nice effort!':'Good practice—every try counts.';
+  html(`<div class="progress">Game complete</div><h2>${statement}</h2><p style="font-size:1.35rem;font-weight:700">${score} of 6 answers correct</p><p>This score is just for this game. It is not a medical memory test.</p><div class="feedback"><strong>Today’s reminder:</strong> ${safe(g.note)}</div>${button('Play another round','again','primary')}`);
+  bind('again',()=>{gameIndex++;score=0;next('words');});
+ }
+}
+render();
+})();
+</script>
+</body>
+</html>
